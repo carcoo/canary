@@ -282,13 +282,6 @@ class Combat {
 			params.origin = origin;
 		}
 
-		void setSourceInstantSpellName(std::string value) {
-			sourceInstantSpellName = value;
-		}
-		void setSourceRuneSpellName(std::string value) {
-			sourceRuneSpellName = value;
-		}
-
 	private:
 		static void doCombatDefault(Creature* caster, Creature* target, const CombatParams &params);
 
@@ -315,9 +308,6 @@ class Combat {
 		double maxb = 0.0;
 
 		std::unique_ptr<AreaCombat> area;
-		
-		std::string sourceRuneSpellName;
-		std::string sourceInstantSpellName;
 };
 
 class MagicField final : public Item {

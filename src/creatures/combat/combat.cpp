@@ -22,14 +22,6 @@ CombatDamage Combat::getCombatDamage(Creature* creature, Creature* target) const
 	CombatDamage damage;
 	damage.origin = params.origin;
 	damage.primary.type = params.combatType;
-	damage.instantSpellName = sourceInstantSpellName;
-	damage.runeSpellName = sourceRuneSpellName;
-	// Wheel of destiny
-	Spell* spell = nullptr;
-	Player* attackerPlayer = creature ? creature->getPlayer() : nullptr;
-	if (attackerPlayer) {
-		spell = attackerPlayer->getWheelOfDestinyCombatDataSpell(damage, target);
-	}
 	if (formulaType == COMBAT_FORMULA_DAMAGE) {
 		damage.primary.value = normal_random(
 			static_cast<int64_t>(mina),
@@ -43,19 +35,7 @@ CombatDamage Combat::getCombatDamage(Creature* creature, Creature* target) const
 			if (params.valueCallback) {
 				params.valueCallback->getMinMaxValues(player, damage, params.useCharges);
 			} else if (formulaType == COMBAT_FORMULA_LEVELMAGIC) {
-				uint32_t magicLevelSkill = player->getMagicLevel();
-				// Wheel of destiny - Runic Mastery
-				if (player->getWheelOfDestinyInstant("Runic Mastery") && spell && damage.instantSpellName.empty()) {
-					if (normal_random(0, 100) <= 25) {
-						// Yeah, im using rune name on instant. This happens because rune conjuring spell have the same name as the rune item spell.
-						InstantSpell* conjuringSpell = g_spells().getInstantSpellByName(damage.runeSpellName);
-						if (conjuringSpell && conjuringSpell != spell) {
-							magicLevelSkill += std::ceil((static_cast<double>(magicLevelSkill) * (conjuringSpell->canCast(player) ? 20 : 10))/100.);
-						}
-					}
-				}
-				// int32_t levelFormula = player->getLevel() * 2 + magicLevelSkill * 3;
-				int32_t levelFormula = player->getLevel() * 2 + (magicLevelSkill + player->getSpecializedMagicLevel(damage.primary.type)) * 3;
+				int32_t levelFormula = player->getLevel() * 2 + player->getMagicLevel() * 3;
 				damage.primary.value = normal_random(
 					static_cast<int64_t>(levelFormula * mina + minb),
 					static_cast<int64_t>(levelFormula * maxa + maxb)
@@ -906,26 +886,6 @@ void Combat::CombatFunc(Creature* caster, const Position &pos, const AreaCombat*
 		tmpDamage.secondary.value = data->secondary.value;
 		tmpDamage.critical = data->critical;
 		tmpDamage.fatal = data->fatal;
-		tmpDamage.criticalDamage = data->criticalDamage;
-		tmpDamage.criticalChance = data->criticalChance;
-		tmpDamage.damageMultiplier = data->damageMultiplier;
-		tmpDamage.damageReductionMultiplier = data->damageReductionMultiplier;
-		tmpDamage.healingMultiplier = data->healingMultiplier;
-		tmpDamage.manaLeech = data->manaLeech;
-		tmpDamage.lifeLeech = data->lifeLeech;
-		tmpDamage.healingLink = data->healingLink;
-		tmpDamage.instantSpellName = data->instantSpellName;
-		tmpDamage.runeSpellName = data->runeSpellName;
-		tmpDamage.lifeLeechChance = data->lifeLeechChance;
-		tmpDamage.manaLeechChance = data->manaLeechChance;
-	}
-
-	// Wheel of destiny
-	uint8_t beamAffectedTotal = 0;
-	uint8_t beamAffectedCurrent=  0;
-	Player* casterPlayer = caster ? caster->getPlayer() : nullptr;
-	if (casterPlayer && tmpDamage.runeSpellName == "Beam Mastery" && casterPlayer->getWheelOfDestinyInstant("Beam Mastery")) {
-		beamAffectedTotal = 3;
 	}
 
 	tmpDamage.affected = affected;
@@ -948,11 +908,6 @@ void Combat::CombatFunc(Creature* caster, const Position &pos, const AreaCombat*
 				}
 
 				if (!params.aggressive || (caster != creature && Combat::canDoCombat(caster, creature) == RETURNVALUE_NOERROR)) {
-					if (casterPlayer && beamAffectedTotal > 0) {
-						tmpDamage.damageMultiplier += casterPlayer->checkWheelOfDestinyBeamMasteryDamage();
-						--beamAffectedTotal;
-						beamAffectedCurrent++;
-					}
 					func(caster, creature, params, &tmpDamage);
 					if (params.targetCallback) {
 						params.targetCallback->onTargetCombat(caster, creature);
@@ -965,10 +920,6 @@ void Combat::CombatFunc(Creature* caster, const Position &pos, const AreaCombat*
 			}
 		}
 		combatTileEffects(spectators, caster, tile, params);
-	}
-
-	if (casterPlayer && !casterPlayer->isRemoved() && beamAffectedCurrent > 0) {
-		casterPlayer->reduceAllSpellsCooldownTimer(beamAffectedCurrent * 1000);
 	}
 
 	postCombatEffects(caster, pos, params);
@@ -990,9 +941,9 @@ void Combat::doCombatHealth(Creature* caster, Creature* target, CombatDamage &da
 
 	if (caster && caster->getPlayer()) {
 		// Critical damage
-		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE) + damage.criticalChance;
+		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE);
 		// Charm low blow rune)
-		if (!damage.cleave && target && target->getMonster() && damage.primary.type != COMBAT_HEALING) {
+		if (target && target->getMonster() && damage.primary.type != COMBAT_HEALING) {
 			uint16_t playerCharmRaceid = caster->getPlayer()->parseRacebyCharm(CHARM_LOW, false, 0);
 			if (playerCharmRaceid != 0) {
 				const MonsterType* mType = g_monsters().getMonsterType(target->getName());
@@ -1007,8 +958,8 @@ void Combat::doCombatHealth(Creature* caster, Creature* target, CombatDamage &da
 		}
 		if (chance != 0 && uniform_random(1, 100) <= chance) {
 			damage.critical = true;
-			damage.primary.value += (damage.primary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
-			damage.secondary.value += (damage.secondary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
+			damage.primary.value += (damage.primary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
+			damage.secondary.value += (damage.secondary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
 		}
 
 		// Fatal hit (onslaught)
@@ -1045,11 +996,11 @@ void Combat::doCombatHealth(Creature* caster, Creature* target, CombatDamage &da
 void Combat::doCombatHealth(Creature* caster, const Position &position, const AreaCombat* area, CombatDamage &damage, const CombatParams &params) {
 	if (caster && caster->getPlayer()) {
 		// Critical damage
-		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE) + damage.criticalChance;
-		if (damage.primary.type != COMBAT_HEALING && chance != 0 && uniform_random(1, 100) <= chance)
+		if (uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE);
+			damage.primary.type != COMBAT_HEALING && chance != 0 && uniform_random(1, 100) <= chance) {
 			damage.critical = true;
-			damage.primary.value += (damage.primary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
-			damage.secondary.value += (damage.secondary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
+			damage.primary.value += (damage.primary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
+			damage.secondary.value += (damage.secondary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
 		}
 
 		// Fatal hit (onslaught)
@@ -1077,11 +1028,11 @@ void Combat::doCombatMana(Creature* caster, Creature* target, CombatDamage &dama
 
 	if (caster && caster->getPlayer()) {
 		// Critical damage
-		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE) + damage.criticalChance;
+		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE);
 		if (chance != 0 && uniform_random(1, 100) <= chance) {
 			damage.critical = true;
-			damage.primary.value += (damage.primary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
-			damage.secondary.value += (damage.secondary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
+			damage.primary.value += (damage.primary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
+			damage.secondary.value += (damage.secondary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
 		}
 	}
 
@@ -1106,11 +1057,11 @@ void Combat::doCombatMana(Creature* caster, Creature* target, CombatDamage &dama
 void Combat::doCombatMana(Creature* caster, const Position &position, const AreaCombat* area, CombatDamage &damage, const CombatParams &params) {
 	if (caster && caster->getPlayer()) {
 		// Critical damage
-		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE) + damage.criticalChance;
-		if (chance != 0 && uniform_random(1, 100) <= chance)
+		uint16_t chance = caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_CHANCE);
+		if (chance != 0 && uniform_random(1, 100) <= chance) {
 			damage.critical = true;
-			damage.primary.value += (damage.primary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
-			damage.secondary.value += (damage.secondary.value * (caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE) + damage.criticalDamage))/100;
+			damage.primary.value += (damage.primary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
+			damage.secondary.value += (damage.secondary.value * caster->getPlayer()->getSkillLevel(SKILL_CRITICAL_HIT_DAMAGE)) / 100;
 		}
 	}
 	CombatFunc(caster, position, area, params, CombatManaFunc, &damage);
@@ -1236,22 +1187,8 @@ void ValueCallback::getMinMaxValues(Player* player, CombatDamage &damage, bool u
 	switch (type) {
 		case COMBAT_FORMULA_LEVELMAGIC: {
 			// onGetPlayerMinMaxValues(player, level, maglevel)
-			uint32_t magicLevelSkill = (player->getMagicLevel() + player->getSpecializedMagicLevel(damage.primary.type));
-			// Wheel of destiny
-			if (player && player->getWheelOfDestinyInstant("Runic Mastery") && damage.instantSpellName.empty()) {
-				if (normal_random(0, 100) <= 25) {
-					Spell* spell = g_spells().getRuneSpellByName(damage.runeSpellName);
-					if (spell) {
-						// Yeah, im using rune name on instant. This happens because rune conjuring spell have the same name as the rune item spell.
-						InstantSpell* conjuringSpell = g_spells().getInstantSpellByName(damage.runeSpellName);
-						if (conjuringSpell && conjuringSpell != spell) {
-							magicLevelSkill += std::ceil((static_cast<double>(magicLevelSkill) * (conjuringSpell->canCast(player) ? 20 : 10))/100.);
-						}
-					}
-				}
-			}
 			lua_pushnumber(L, player->getLevel());
-			lua_pushnumber(L, magicLevelSkill);
+			lua_pushnumber(L, player->getMagicLevel());
 			parameters += 2;
 			break;
 		}

@@ -23,11 +23,6 @@ bool Condition::setParam(ConditionParam_t param, int64_t value) {
 			return true;
 		}
 
-		case CONDITION_PARAM_DRAIN_BODY: {
-			drainBodyStage = value;
-			return true;
-		}
-
 		case CONDITION_PARAM_BUFF_SPELL: {
 			isBuff = (value != 0);
 			return true;
@@ -331,11 +326,6 @@ bool ConditionGeneric::startCondition(Creature* creature) {
 	return Condition::startCondition(creature);
 }
 
-bool ConditionGeneric::executeCondition(Creature* creature, int64_t interval)
-{
-	return Condition::executeCondition(creature, interval);
-}
-
 void ConditionGeneric::endCondition(Creature*) { }
 
 void ConditionGeneric::addCondition(Creature* creature, const Condition* addCondition) {
@@ -396,9 +386,6 @@ void ConditionAttributes::addCondition(Creature* creature, const Condition* addC
 			updatePercentStats(player);
 			updateStats(player);
 		}
-  }
-  if (creature && drainBodyStage > 0) {
-		creature->setWheelOfDestinyDrainBodyDebuff(drainBodyStage);
 	}
 }
 
@@ -503,8 +490,8 @@ void ConditionAttributes::updatePercentSkills(Player* player) {
 			continue;
 		}
 
-    int32_t unmodifiedSkill = player->getBaseSkill(i);
-    skills[i] = static_cast<int32_t>(unmodifiedSkill * ((skillsPercent[i] - 100) / 100.f));
+		int64_t unmodifiedSkill = player->getBaseSkill(i);
+		skills[i] = unmodifiedSkill * (skillsPercent[i] - 100) / 100;
 	}
 }
 
@@ -545,13 +532,7 @@ void ConditionAttributes::updateBuffs(Creature* creature) {
 	}
 }
 
-bool ConditionAttributes::executeCondition(Creature* creature, int64_t interval)
-{
-  return ConditionGeneric::executeCondition(creature, interval);
-}
-
-void ConditionAttributes::endCondition(Creature* creature)
-{
+void ConditionAttributes::endCondition(Creature* creature) {
 	Player* player = creature->getPlayer();
 	if (player) {
 		bool needUpdate = false;
@@ -1534,11 +1515,6 @@ bool ConditionSpeed::startCondition(Creature* creature) {
 	return true;
 }
 
-bool ConditionSpeed::executeCondition(Creature* creature, int64_t interval)
-{
-	return Condition::executeCondition(creature, interval);
-}
-
 void ConditionSpeed::endCondition(Creature* creature) {
 	g_game().changeSpeed(creature, -speedDelta);
 }
@@ -1655,11 +1631,6 @@ bool ConditionOutfit::startCondition(Creature* creature) {
 
 	g_game().internalCreatureChangeOutfit(creature, outfit);
 	return true;
-}
-
-bool ConditionOutfit::executeCondition(Creature* creature, int64_t interval)
-{
-	return Condition::executeCondition(creature, interval);
 }
 
 void ConditionOutfit::endCondition(Creature* creature) {

@@ -64,8 +64,6 @@ class Condition {
 		bool isPersistent() const;
 
 	protected:
-	
-		uint8_t drainBodyStage;
 		int64_t endTime;
 		uint32_t subId;
 		int64_t ticks;
@@ -85,7 +83,6 @@ class ConditionGeneric : public Condition {
 			Condition(initId, initType, initTicks, initBuff, initSubId) { }
 
 		bool startCondition(Creature* creature) override;
-		bool executeCondition(Creature* creature, int64_t interval) override;
 		void endCondition(Creature* creature) override;
 		void addCondition(Creature* creature, const Condition* condition) override;
 		uint32_t getIcons() const override;
@@ -101,7 +98,6 @@ class ConditionAttributes final : public ConditionGeneric {
 			ConditionGeneric(initId, initType, initTicks, initBuff, initSubId) { }
 
 		bool startCondition(Creature* creature) final;
-		bool executeCondition(Creature* creature, int64_t interval) final;
 		void endCondition(Creature* creature) final;
 		void addCondition(Creature* creature, const Condition* condition) final;
 
@@ -289,7 +285,6 @@ class ConditionSpeed final : public Condition {
 			Condition(initId, initType, initTicks, initBuff, initSubId), speedDelta(initChangeSpeed) { }
 
 		bool startCondition(Creature* creature) override;
-		bool executeCondition(Creature* creature, int64_t interval) override;
 		void endCondition(Creature* creature) override;
 		void addCondition(Creature* creature, const Condition* condition) override;
 		uint32_t getIcons() const override;

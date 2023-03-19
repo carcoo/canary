@@ -509,6 +509,11 @@ void Npc::removePlayerInteraction(Player* player) {
 	if (playerInteractions.contains(player->getID())) {
 		playerInteractions.erase(player->getID());
 		player->closeShopWindow(true);
+}
+
+void Npc::removePlayerInteraction(uint32_t playerId) {
+	if (playerInteractions.find(playerId) != playerInteractions.end()) {
+		playerInteractions.erase(playerId);
 	}
 }
 

@@ -123,6 +123,7 @@ class Npc final : public Creature {
 
 		void setPlayerInteraction(uint32_t playerId, uint16_t topicId = 0);
 		void removePlayerInteraction(Player* player);
+		void removePlayerInteraction(uint32_t playerId);
 		void resetPlayerInteractions();
 
 		bool isInteractingWithPlayer(uint32_t playerId) {

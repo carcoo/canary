@@ -547,7 +547,7 @@ void ConditionAttributes::updateBuffs(Creature* creature) {
 
 bool ConditionAttributes::executeCondition(Creature* creature, int64_t interval)
 {
-  return ConditionGeneric::executeCondition(creature, interval);
+  return ConditionAttributes::executeCondition(creature, interval);
 }
 
 void ConditionAttributes::endCondition(Creature* creature)
@@ -1536,7 +1536,7 @@ bool ConditionSpeed::startCondition(Creature* creature) {
 
 bool ConditionSpeed::executeCondition(Creature* creature, int64_t interval)
 {
-	return Condition::executeCondition(creature, interval);
+	return ConditionSpeed::executeCondition(creature, interval);
 }
 
 void ConditionSpeed::endCondition(Creature* creature) {
@@ -1659,7 +1659,7 @@ bool ConditionOutfit::startCondition(Creature* creature) {
 
 bool ConditionOutfit::executeCondition(Creature* creature, int64_t interval)
 {
-	return Condition::executeCondition(creature, interval);
+	return ConditionOutfit::executeCondition(creature, interval);
 }
 
 void ConditionOutfit::endCondition(Creature* creature) {
